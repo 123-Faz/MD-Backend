@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/server.ts",
     "build": "tsc && tsc-alias",
-    "start": "server.js",
+    "start": "node dist/server.js",
     "seed:admin": "ts-node -r tsconfig-paths/register src/seeders/cli.ts seed:admin",
     "clear:admin": "ts-node -r tsconfig-paths/register src/seeders/cli.ts clear:admin",
     "refresh:admin": "ts-node -r tsconfig-paths/register src/seeders/cli.ts refresh:admin",
