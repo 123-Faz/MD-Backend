@@ -1,6 +1,6 @@
-import { login } from '@/controller/v1/doctor/auth.controller';
+import { login, resetPassword, changePassword, forgotPassword } from '@/controller/v1/doctor/auth.controller';
 import { register} from '@/controller/v1/doctor/auth.controller'
-import { currentUser, getDoctorSchedules, getPendingAppointments, confirmAppointment, createPrescription, getDoctorPrescriptions } from '@/controller/v1/doctor/user.controller';
+import { currentUser, updateUserProfile, getDoctorSchedules, getPendingAppointments, confirmAppointment, createPrescription, getDoctorPrescriptions } from '@/controller/v1/doctor/user.controller';
 import { all } from '@/middlewares/trimRequestMiddleware'
 import express from 'express'
 import {authDoctorMiddleware} from "@/middlewares/authMiddleware"
@@ -9,6 +9,10 @@ import {authDoctorMiddleware} from "@/middlewares/authMiddleware"
 const authDoctorRouter = express.Router()
 
 authDoctorRouter.get("/me", authDoctorMiddleware, currentUser);
+authDoctorRouter.put("/update-profile", authDoctorMiddleware, updateUserProfile);
+authDoctorRouter.post('/forgot-password', all, forgotPassword);
+authDoctorRouter.post('/reset-password', all, resetPassword);
+authDoctorRouter.post('/change-password', all, authDoctorMiddleware, changePassword);
 authDoctorRouter.post('/register', all, register);
 authDoctorRouter.post('/login', all, login);
 authDoctorRouter.get('/all-scd', authDoctorMiddleware, getDoctorSchedules);

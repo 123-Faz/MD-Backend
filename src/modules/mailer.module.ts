@@ -24,6 +24,14 @@ export const OAuthMailer = createTransport({
     }
 })
 
+export const GmailMailer = createTransport({
+    service: "gmail",
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+})
+
 export const renderEjsHTMLStr = async (template: string, data = {}): Promise<string> => {
     return new Promise((resolve, reject) => {
         try {

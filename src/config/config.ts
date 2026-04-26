@@ -58,8 +58,8 @@ const config: Config = {
     },
     tokens: {
         jwt_secret: process.env.JWT_SECRET || "",
-        jwt_refresh_secret: process.env.ADMIN_JWT_SECRET || "",
-        admin_jwt_secret: process.env.JWT_REFRESH_SECRET || "",
+        jwt_refresh_secret: process.env.JWT_REFRESH_SECRET || "",
+        admin_jwt_secret: process.env.ADMIN_JWT_SECRET || "",
         doctor_jwt_secret: process.env.DOCTOR_JWT_SECRET || "",
     }
 

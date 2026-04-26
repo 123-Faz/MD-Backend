@@ -5,7 +5,7 @@ const trimStringProperties = (obj: any) => {
     if (obj !== null && typeof obj === 'object') {
         for (const prop in obj) {
             if (typeof obj[prop] === 'object') {
-                return trimStringProperties(obj[prop])
+                trimStringProperties(obj[prop])
             }
             if (typeof obj[prop] === 'string') {
                 obj[prop] = obj[prop].trim();

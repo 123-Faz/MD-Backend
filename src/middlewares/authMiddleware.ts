@@ -42,7 +42,7 @@ export const authAdminMiddleware = async (req: Request, res: Response, next: Nex
     return next(new ApiError("Invalid Token", StatusCodes.UNAUTHORIZED))
   const payload = await verifyToken(tokenValue, config.tokens.admin_jwt_secret)
   if (!payload)
-    return next(new ApiError("Invalid Token", StatusCodes.UNAUTHORIZED))
+    return next(new ApiError("Invalid or expired admin token", StatusCodes.UNAUTHORIZED))
 
   req.user = payload
   next();

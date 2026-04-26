@@ -11,6 +11,10 @@ import {
   PrescriptionStatus,
 } from "@/models/Prescriptions";
 import { uploadFile } from "@/services/file.service";
+import fs from "fs";
+import { UploadedFile } from "express-fileupload";
+import validator from "validator";
+import path from "path";
 
 export const currentUser = async (
   req: Request,
@@ -20,6 +24,105 @@ export const currentUser = async (
   try {
     const user = await Doctor.findOne({ _id: req.user?.userId });
     return res.status(StatusCodes.OK).json(user?.publicResponse());
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateUserProfile = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<any> => {
+  try {
+    const userId = req.user?.userId;
+
+    // Prevent password update here
+    if (req.body.password) {
+      throw new ApiError("Password update is not allowed in this route", StatusCodes.BAD_REQUEST);
+    }
+
+    const { username, email, name } = req.body;
+
+    const errors: any = {};
+
+    if (username && !validator.isLength(username, { min: 3, max: 10 })) {
+      errors.username = "Username must be between 3-10 characters";
+    }
+
+    if (email && !validator.isEmail(email)) {
+      errors.email = "Invalid email format";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      throw new ApiError(errors, StatusCodes.BAD_REQUEST);
+    }
+
+    // Find doctor
+    const doctor = await Doctor.findById(userId);
+
+    if (!doctor) {
+      throw new ApiError("Doctor not found", StatusCodes.NOT_FOUND);
+    }
+
+    // Check duplicates (username/email)
+    if (username && username !== doctor.username) {
+      const existingUsername = await Doctor.findOne({ username });
+      if (existingUsername) {
+        throw new ApiError("Username already exists", StatusCodes.CONFLICT);
+      }
+      doctor.username = username;
+    }
+
+    if (email && email !== doctor.email) {
+      const existingEmail = await Doctor.findOne({ email });
+      if (existingEmail) {
+        throw new ApiError("Email already exists", StatusCodes.CONFLICT);
+      }
+      doctor.email = email;
+    }
+
+    // Update fields (only if provided)
+    if (name !== undefined) doctor.name = name;
+
+    // Handle Image Upload
+    if (req.files && req.files.image) {
+      const image = req.files.image as UploadedFile;
+
+      if (!image.mimetype.startsWith('image')) {
+        throw new ApiError("Please upload an image file", StatusCodes.BAD_REQUEST);
+      }
+
+      // Delete old image if it exists
+      if (doctor.image && doctor.image.startsWith('/storage/uploads/doctor/')) {
+        // Go back 3 levels from src/controller/v1/doctor/ to reach src/
+        const oldImagePath = path.join(__dirname, '../../../', doctor.image);
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
+      }
+
+      const displayName = doctor.name ? doctor.name.replace(/\s+/g, '-') : doctor.username;
+      const fileName = `doctor-${displayName}-${userId}-${Date.now()}${path.extname(image.name)}`;
+      const uploadDir = path.join(__dirname, '../../../storage/uploads/doctor');
+      const uploadPath = path.join(uploadDir, fileName);
+
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      await image.mv(uploadPath);
+      doctor.image = `/storage/uploads/doctor/${fileName}`;
+    }
+
+    await doctor.save();
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: doctor.publicResponse(),
+    });
+
   } catch (error) {
     next(error);
   }
@@ -98,102 +201,6 @@ export const getPendingAppointments = async (
   }
 };
 
-// // Helper function to check doctor-patient access
-// const checkDoctorPatientAccess = async (doctor_id: string, patient_id: string): Promise<boolean> => {
-//   try {
-//     // Since appointment represents the patient, check if there's an appointment between this doctor and patient
-//     const appointment = await Appointment.findOne({
-//       doctor: doctor_id,
-//       _id: patient_id, // Use appointment ID as patient identifier
-//       status: { $in: ["confirmed", "completed", "ongoing"] }
-//     });
-//     return !!appointment;
-//   } catch (error) {
-//     console.error("Error checking doctor-patient access:", error);
-//     return false;
-//   }
-// };
-// export const confirmAppointment = async (
-//   req: Request,
-//   res: Response,
-//   next: NextFunction
-// ): Promise<any> => {
-//   try {
-//     const errors: {
-//       appointmentId?: string;
-//       scheduleDate?: string;
-//       appointmentTime?: string;
-//     } = {};
-
-//     const { appointmentId, scheduleDate, appointmentTime } = req.body;
-//     const doctorId = req.user.userId;
-
-//     // Validation
-//     !appointmentId
-//       ? (errors.appointmentId = "Appointment ID is required")
-//       : null;
-//     !scheduleDate ? (errors.scheduleDate = "Schedule date is required") : null;
-//     !appointmentTime
-//       ? (errors.appointmentTime = "Appointment time is required")
-//       : null;
-
-//     if (Object.keys(errors).length > 0) {
-//       throw new ApiError(errors, StatusCodes.BAD_REQUEST);
-//     }
-
-//     // Find appointment
-//     const appointment = await Appointment.findOne({
-//       _id: appointmentId,
-//       doctor: doctorId,
-//     });
-
-//     if (!appointment) {
-//       throw new ApiError("Appointment not found", StatusCodes.NOT_FOUND);
-//     }
-
-//     // Check doctor schedule
-//     const selectedDate = new Date(scheduleDate);
-//     const schedule = await Schedule.findOne({
-//       doctor: doctorId,
-//       startDate: { $lte: selectedDate },
-//       endDate: { $gte: selectedDate },
-//       isHoliday: false,
-//       isOnLeave: false,
-//     });
-
-//     if (!schedule) {
-//       throw new ApiError(
-//         "No schedule found for selected date",
-//         StatusCodes.BAD_REQUEST
-//       );
-//     }
-
-//     // Check if time is within schedule hours
-//     if (
-//       appointmentTime < schedule.startTime ||
-//       appointmentTime > schedule.endTime
-//     ) {
-//       throw new ApiError(
-//         "Selected time is outside schedule hours",
-//         StatusCodes.BAD_REQUEST
-//       );
-//     }
-
-//     // Simple response with confirmation details
-//     return res.status(StatusCodes.OK).json({
-//       message: "Appointment confirmed successfully",
-//       confirmation: {
-//         patientName: appointment.patientName,
-//         appointmentDate: scheduleDate,
-//         appointmentTime: appointmentTime,
-//         doctorMessage: `Your appointment with Dr. has been confirmed for ${scheduleDate} at ${appointmentTime}`,
-//       },
-//     });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
-
 export const confirmAppointment = async (
   req: Request,
   res: Response,
@@ -251,26 +258,19 @@ export const confirmAppointment = async (
     const convertTo24Hour = (time12h: string): string => {
       const [time, period] = time12h.split(' ');
       let [hours, minutes] = time.split(':');
-      
+
       if (period?.toLowerCase() === 'pm' && hours !== '12') {
         hours = (parseInt(hours) + 12).toString();
       } else if (period?.toLowerCase() === 'am' && hours === '12') {
         hours = '00';
       }
-      
+
       return `${hours.padStart(2, '0')}:${minutes}`;
     };
 
     const scheduleStart24 = convertTo24Hour(schedule.startTime);
     const scheduleEnd24 = convertTo24Hour(schedule.endTime);
 
-    console.log('Time comparison:', {
-      scheduleStart: schedule.startTime,
-      scheduleEnd: schedule.endTime,
-      scheduleStart24,
-      scheduleEnd24,
-      appointmentTime
-    });
 
     // Check if time is within schedule hours (using 24-hour format)
     if (

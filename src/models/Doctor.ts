@@ -23,12 +23,10 @@ const userSchema: Schema = new Schema<IDoctor>(
         specialization: {
             type: String,
             required: true,
-            unique: true,
         },
         experience: {
             type: String,
             required: true,
-            unique: true,
         },
         name: {
             type: String,
